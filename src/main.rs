@@ -59,8 +59,11 @@ async fn fetch_stock_data(ticker: &str) -> Result<(), Box<dyn Error>> {
 }
 
 fn plot_quotes(ticker: &str, quotes: &[yahoo::Quote], dates: &[String]) -> Result<(), Box<dyn std::error::Error>> {
+    // Define the picture path
     let path = format!("{}-stock-chart.png", ticker);
+    // Create the backend picture
     let root_area = BitMapBackend::new(&path, (800, 600)).into_drawing_area();
+    // Fill with all white
     root_area.fill(&WHITE)?;
 
     let closing_prices: Vec<_> = quotes.iter().map(|quote| quote.close).collect();
@@ -124,9 +127,21 @@ fn plot_quotes(ticker: &str, quotes: &[yahoo::Quote], dates: &[String]) -> Resul
     chart.configure_mesh()
         .x_labels(dates.len())
         .x_label_formatter(&|idx| {
-            dates.get(*idx).cloned().unwrap_or_default()
-        })
-        .draw()?;
+            let labels_count = dates.len();
+            println!("{}c",labels_count);
+            let labels_to_display = 6;
+            let step = labels_count / labels_to_display;
+            println!("{}",step);
+            if idx%step == 0 {
+                if let Some(date) = dates.get(*idx) {
+                    println!("{}",date);
+
+                    return date.to_string();
+                }
+            }
+
+            String::new()
+        }).draw()?;
 
     // Add legend on the top-left corner
     chart.configure_series_labels()
