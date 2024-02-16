@@ -4,6 +4,8 @@ use time::{OffsetDateTime, Duration};
 use std::io::{self, Write};
 use std::error::Error;
 use plotters::prelude::*;
+use ta::Next;
+use ta::indicators::RelativeStrengthIndex;
 
 async fn fetch_stock_data(ticker: &str) -> Result<(), Box<dyn Error>> {
     let provider = yahoo::YahooConnector::new();
@@ -27,21 +29,6 @@ async fn fetch_stock_data(ticker: &str) -> Result<(), Box<dyn Error>> {
     let quotes = resp.quotes()
         .expect("Failed to get quotes from response");
 
-    // let dates = Vec::new();
-    // println!("{}'s daily closing prices for the last six months:", ticker);
-    // for quote in quotes.iter() {
-    //     // Convert timestamp to human-readable date and save it into the vector
-    //     let date = match NaiveDateTime::from_timestamp_opt(quote.timestamp as i64, 0) {
-    //         Some(dt) => dt,
-    //         None => {
-    //             println!("Invalid timestamp: {}", quote.timestamp);
-    //             continue; // Skip this quote if timestamp is invalid
-    //         }
-    //     };
-    //     let formatted_date = date.format("%Y-%m-%d").to_string();
-    //     dates.push(formatted_date);
-    //     println!("Date: {}, Close: {}", date, quote.close);
-    // }
     let dates: Vec<String> = quotes.iter().filter_map(|quote| {
         // Convert timestamp to human-readable date
         let date = match NaiveDateTime::from_timestamp_opt(quote.timestamp as i64, 0) {
@@ -54,6 +41,78 @@ async fn fetch_stock_data(ticker: &str) -> Result<(), Box<dyn Error>> {
         Some(date.format("%Y-%m-%d").to_string()) // Return formatted date
     }).collect();
     plot_quotes(ticker, &quotes, &dates)?;
+    plot_rsi(ticker, &quotes, &dates)?;
+
+    Ok(())
+}
+
+// plot RSI values of the stock
+fn plot_rsi(ticker: &str, quotes: &[yahoo::Quote], dates: &[String]) -> Result<(), Box<dyn std::error::Error>> {
+    // Define the picture path
+    let path = format!("{}-stock-RSI-chart.png", ticker);
+    // Create the backend picture
+    let root_area = BitMapBackend::new(&path, (800, 600)).into_drawing_area();
+    // Fill with all white
+    root_area.fill(&WHITE)?;
+
+    let closing_prices: Vec<_> = quotes.iter().map(|quote| quote.close).collect();
+    let mut rsi = RelativeStrengthIndex::new(14).unwrap();
+
+    // calculate the rsi_values
+    let rsi_values: Vec<f64> = closing_prices.iter().map(|&price| {
+        rsi.next(price)
+    }).collect();
+
+    // create the initial chart and set up x/y axis
+    let mut chart = ChartBuilder::on(&root_area)
+        .caption(format!("{} Stock RSI", ticker), ("sans-serif", 40))
+        .x_label_area_size(40)
+        .y_label_area_size(40)
+        .build_cartesian_2d(0..dates.len(), 0.0..100.0)?;
+
+    // Set x-axis labels to be the dates
+    chart.configure_mesh()
+        .x_labels(dates.len())
+        .x_label_formatter(&|idx| {
+            let labels_count = dates.len();
+            let labels_to_display = 6;
+            let step = labels_count / labels_to_display;
+            if idx%step == 0 {
+                if let Some(date) = dates.get(*idx) {
+                    println!("{}",date);
+
+                    return date.to_string();
+                }
+            }
+
+            String::new()
+        }).draw()?;
+
+    // draw RSI line
+    chart.draw_series(LineSeries::new(
+        rsi_values.iter().enumerate().map(|(i, &rsi)| (i, rsi)),
+        &RED,
+    ))?.label(ticker.to_owned() + " RSI")
+        .legend(|(x, y)| PathElement::new(vec![(x, y), (x + 20, y)], &RED));;
+
+    // overbought line
+    chart.draw_series(std::iter::once(PathElement::new(
+        [(0, 70.0), (dates.len(), 70.0)],
+        GREEN.stroke_width(2),
+    )))?.label("Overbought")
+        .legend(|(x, y)| PathElement::new(vec![(x, y), (x + 20, y)], &GREEN));;
+
+    // oversold line
+    chart.draw_series(std::iter::once(PathElement::new(
+        [(0, 30.0), (dates.len(), 30.0)],
+        BLUE.stroke_width(2),
+    )))?.label("Oversold")
+        .legend(|(x, y)| PathElement::new(vec![(x, y), (x + 20, y)], &BLUE));;
+
+    // Add legend on the top-left corner
+    chart.configure_series_labels()
+        .position(SeriesLabelPosition::UpperLeft)
+        .draw()?;
 
     Ok(())
 }
@@ -92,7 +151,8 @@ fn plot_quotes(ticker: &str, quotes: &[yahoo::Quote], dates: &[String]) -> Resul
     .legend(|(x, y)| PathElement::new(vec![(x, y), (x + 20, y)], &RED));
 
     let bar_width = 1;
-    
+
+    // draw special error lines for volatile_days
     for (i, quote) in quotes.iter().enumerate() {
         let price_range = quote.high - quote.low;
         let price_change_percent = (price_range / quote.close) * 100.0;
