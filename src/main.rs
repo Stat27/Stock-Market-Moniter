@@ -59,7 +59,7 @@ fn plot_rsi(ticker: &str, quotes: &[yahoo::Quote], dates: &[String]) -> Result<(
     let mut rsi = RelativeStrengthIndex::new(14).unwrap();
 
     // calculate the rsi_values
-    let rsi_values: Vec<f64> = closing_prices.iter().map(|&price| {
+    let rsis: Vec<f64> = closing_prices.iter().map(|&price| {
         rsi.next(price)
     }).collect();
 
@@ -72,7 +72,7 @@ fn plot_rsi(ticker: &str, quotes: &[yahoo::Quote], dates: &[String]) -> Result<(
 
     // Set x-axis labels to be the dates
     chart.configure_mesh()
-        .x_labels(dates.len())
+        .x_labels(dates.len()/4)
         .x_label_formatter(&|idx| {
             let labels_count = dates.len();
             let labels_to_display = 6;
@@ -86,11 +86,12 @@ fn plot_rsi(ticker: &str, quotes: &[yahoo::Quote], dates: &[String]) -> Result<(
             }
 
             String::new()
-        }).draw()?;
+        }).y_labels(dates.len()/4)
+        .draw()?;
 
     // draw RSI line
     chart.draw_series(LineSeries::new(
-        rsi_values.iter().enumerate().map(|(i, &rsi)| (i, rsi)),
+        rsis.iter().enumerate().map(|(i, &rsi)| (i, rsi)),
         &RED,
     ))?.label(ticker.to_owned() + " RSI")
         .legend(|(x, y)| PathElement::new(vec![(x, y), (x + 20, y)], &RED));;
@@ -185,7 +186,8 @@ fn plot_quotes(ticker: &str, quotes: &[yahoo::Quote], dates: &[String]) -> Resul
 
     // Set x-axis labels to be the dates
     chart.configure_mesh()
-        .x_labels(dates.len())
+        .x_labels(dates.len()/4)
+        .y_labels(dates.len()/4)
         .x_label_formatter(&|idx| {
             let labels_count = dates.len();
             println!("{}c",labels_count);

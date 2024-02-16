@@ -9,6 +9,8 @@ We use yahoo_finance_api to fetch the historical stock data of the input company
 We use time crate to get current time by ***OffsetDateTime*** and get six month by ***Duration***
 #### 4. plotters
 We use plotters to generate the stock data plot
+#### 5. ta
+We use ta to get the RSI data
 
 ## Financial analysis algorithm
 Firstly, we retrieve the stock data for a specific period (6 months) by utilizing the get_quote_history method from the yahoo_finance_api. 
