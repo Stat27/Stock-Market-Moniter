@@ -4,7 +4,7 @@ use time::{OffsetDateTime, Duration};
 use std::io::{self, Write};
 use std::error::Error;
 use plotters::prelude::*;
-use plotters::style::full_palette::GREY;
+
 use ta::Next;
 use ta::indicators::RelativeStrengthIndex;
 use ta::indicators::MovingAverageConvergenceDivergence;
@@ -12,14 +12,12 @@ use ta::indicators::MovingAverageConvergenceDivergence;
 async fn fetch_stock_data(ticker: &str) -> Result<(), Box<dyn Error>> {
     let provider = yahoo::YahooConnector::new();
 
-    // Use OffsetDateTime from the 'time' crate
     // set now and 6 month ago to get the time period
     let now = OffsetDateTime::now_utc();
     let six_months = Duration::days(30 * 6); // Approximately 6 months
     let start = now - six_months;
     let end = now;
 
-    // println!("{}", start);
     // Attempt to fetch the quote history
     let resp = match provider.get_quote_history(ticker, start, end).await {
         Ok(resp) => resp,
@@ -28,9 +26,11 @@ async fn fetch_stock_data(ticker: &str) -> Result<(), Box<dyn Error>> {
             return Ok(());
         }
     };
+
     let quotes = resp.quotes()
         .expect("Failed to get quotes from response");
 
+    // A timestamp to keep track of closing price date
     let dates: Vec<String> = quotes.iter().filter_map(|quote| {
         // Convert timestamp to human-readable date
         let date = match NaiveDateTime::from_timestamp_opt(quote.timestamp as i64, 0) {
@@ -82,7 +82,7 @@ fn plot_rsi(ticker: &str, quotes: &[yahoo::Quote], dates: &[String]) -> Result<(
             let step = labels_count / labels_to_display;
             if idx%step == 0 {
                 if let Some(date) = dates.get(*idx) {
-                    println!("{}",date);
+                    // println!("{}",date);
 
                     return date.to_string();
                 }
@@ -97,21 +97,21 @@ fn plot_rsi(ticker: &str, quotes: &[yahoo::Quote], dates: &[String]) -> Result<(
         rsis.iter().enumerate().map(|(i, &rsi)| (i, rsi)),
         &RED,
     ))?.label(ticker.to_owned() + " RSI")
-        .legend(|(x, y)| PathElement::new(vec![(x, y), (x + 20, y)], &RED));;
+        .legend(|(x, y)| PathElement::new(vec![(x, y), (x + 20, y)], &RED));
 
     // overbought line
     chart.draw_series(std::iter::once(PathElement::new(
         [(0, 70.0), (dates.len(), 70.0)],
         GREEN.stroke_width(2),
     )))?.label("Overbought")
-        .legend(|(x, y)| PathElement::new(vec![(x, y), (x + 20, y)], &GREEN));;
+        .legend(|(x, y)| PathElement::new(vec![(x, y), (x + 20, y)], &GREEN));
 
     // oversold line
     chart.draw_series(std::iter::once(PathElement::new(
         [(0, 30.0), (dates.len(), 30.0)],
         BLUE.stroke_width(2),
     )))?.label("Oversold")
-        .legend(|(x, y)| PathElement::new(vec![(x, y), (x + 20, y)], &BLUE));;
+        .legend(|(x, y)| PathElement::new(vec![(x, y), (x + 20, y)], &BLUE));
 
     // Add legend on the top-left corner
     chart.configure_series_labels()
@@ -156,7 +156,7 @@ fn plot_macd(ticker: &str, quotes: &[yahoo::Quote], dates: &[String]) -> Result<
             let step = labels_count / labels_to_display;
             if idx%step == 0 {
                 if let Some(date) = dates.get(*idx) {
-                    println!("{}",date);
+                    // println!("{}",date);
 
                     return date.to_string();
                 }
@@ -252,19 +252,19 @@ fn plot_quotes(ticker: &str, quotes: &[yahoo::Quote], dates: &[String]) -> Resul
         }
     }
 
-    // Set x-axis labels to be the dates
+    // Set x-axis labels to fit the window size(displaying all the dates makes graph look terrible)
     chart.configure_mesh()
         .x_labels(dates.len()/4)
         .y_labels(dates.len()/4)
         .x_label_formatter(&|idx| {
             let labels_count = dates.len();
-            println!("{}c",labels_count);
+            // println!("{}c",labels_count);
             let labels_to_display = 6;
             let step = labels_count / labels_to_display;
-            println!("{}",step);
+            // println!("{}",step);
             if idx%step == 0 {
                 if let Some(date) = dates.get(*idx) {
-                    println!("{}",date);
+                    // println!("{}",date);
 
                     return date.to_string();
                 }
@@ -284,6 +284,7 @@ fn plot_quotes(ticker: &str, quotes: &[yahoo::Quote], dates: &[String]) -> Resul
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
+    // While not end, enter stock ticker from command line
     loop {
         print!("Enter the stock ticker (or 'q' to exit): ");
         io::stdout().flush()?;
