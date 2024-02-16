@@ -4,8 +4,10 @@ use time::{OffsetDateTime, Duration};
 use std::io::{self, Write};
 use std::error::Error;
 use plotters::prelude::*;
+use plotters::style::full_palette::GREY;
 use ta::Next;
 use ta::indicators::RelativeStrengthIndex;
+use ta::indicators::MovingAverageConvergenceDivergence;
 
 async fn fetch_stock_data(ticker: &str) -> Result<(), Box<dyn Error>> {
     let provider = yahoo::YahooConnector::new();
@@ -42,6 +44,7 @@ async fn fetch_stock_data(ticker: &str) -> Result<(), Box<dyn Error>> {
     }).collect();
     plot_quotes(ticker, &quotes, &dates)?;
     plot_rsi(ticker, &quotes, &dates)?;
+    plot_macd(ticker, &quotes, &dates)?;
 
     Ok(())
 }
@@ -116,6 +119,71 @@ fn plot_rsi(ticker: &str, quotes: &[yahoo::Quote], dates: &[String]) -> Result<(
         .draw()?;
 
     Ok(())
+}
+
+fn plot_macd(ticker: &str, quotes: &[yahoo::Quote], dates: &[String]) -> Result<(), Box<dyn std::error::Error>> {
+    // Define the picture path
+    let path = format!("{}-stock-MACD-chart.png", ticker);
+    // Create the backend picture
+    let root_area = BitMapBackend::new(&path, (800, 600)).into_drawing_area();
+    // Fill with all white
+    root_area.fill(&WHITE)?;
+
+    let closing_prices: Vec<_> = quotes.iter().map(|quote| quote.close).collect();
+    let mut macd = MovingAverageConvergenceDivergence::new(12, 26, 9).unwrap();
+    let macds: Vec<(f64, f64, f64)> = closing_prices.iter().map(|&price| {
+        let macd_next = macd.next(price);
+        (macd_next.macd, macd_next.signal, macd_next.histogram)
+    }).collect();
+
+    let macd_min = macds.iter().map(|x| x.2).fold(f64::INFINITY, f64::min);
+    let macd_max = macds.iter().map(|x| x.2).fold(f64::NEG_INFINITY, f64::max);
+    let space = macd_max - macd_min;
+
+    // create the initial chart and set up x/y axis
+    let mut chart = ChartBuilder::on(&root_area)
+        .caption(format!("{} Stock MACD", ticker), ("sans-serif", 40))
+        .x_label_area_size(40)
+        .y_label_area_size(40)
+        .build_cartesian_2d(0..dates.len(), macd_min - space..macd_max + space)?;
+
+    // Set x-axis labels to be the dates
+    chart.configure_mesh()
+        .x_labels(dates.len()/4)
+        .x_label_formatter(&|idx| {
+            let labels_count = dates.len();
+            let labels_to_display = 6;
+            let step = labels_count / labels_to_display;
+            if idx%step == 0 {
+                if let Some(date) = dates.get(*idx) {
+                    println!("{}",date);
+
+                    return date.to_string();
+                }
+            }
+
+            String::new()
+        }).y_labels(dates.len()/4)
+        .draw()?;
+
+    chart.draw_series(LineSeries::new(
+        macds.iter().enumerate().map(|(i, &(macd, ..))| (i, macd)),
+        &RED,
+    ))?.label("MACD")
+        .legend(|(x, y)| PathElement::new(vec![(x, y), (x + 20, y)], &RED));
+
+    chart.draw_series(LineSeries::new(
+        macds.iter().enumerate().map(|(i, &(_, signal, ..))| (i, signal)),
+        &BLUE,
+    ))?.label("MACD Signal")
+        .legend(|(x, y)| PathElement::new(vec![(x, y), (x + 20, y)], &BLUE));
+
+    chart.configure_series_labels()
+        .position(SeriesLabelPosition::UpperLeft)
+        .draw()?;
+
+    Ok(())
+
 }
 
 fn plot_quotes(ticker: &str, quotes: &[yahoo::Quote], dates: &[String]) -> Result<(), Box<dyn std::error::Error>> {

@@ -10,7 +10,7 @@ We use time crate to get current time by ***OffsetDateTime*** and get six month 
 #### 4. plotters
 We use plotters to generate the stock data plot
 #### 5. ta
-We use ta to get the RSI data
+We use ta to get the RSI and MACD data
 
 ## Financial analysis algorithm
 Firstly, we retrieve the stock data for a specific period (6 months) by utilizing the get_quote_history method from the yahoo_finance_api. 
@@ -20,11 +20,14 @@ In addition, we identify the volatile_days with significant price fluctuations. 
 We then filter out the days when this percentage exceeds two percent to subsequently draw error lines for notable price movements.
 
 ## Charting setup
-Firstly, we determine the location for the image generation and set the base size for the drawing area. A white color is then filled in the drawing area to serve as the background for the chart. 
+For the closing price chart, we determine the location for the image generation and set the base size for the drawing area. A white color is then filled in the drawing area to serve as the background for the chart. 
 Next, by calculating the minimum and maximum values of all closing prices, we set the range for the Y-axis of the chart. 
 Once we have all the data we need, we use ***ChartBuilder*** to construct the chart, setting the title, font, label area sizes for the X and Y axes, and the range of the axes. 
 Then, using the closing prices as the base points, we draw a red line chart representing the data over six months, where each point on the image corresponds to the closing price for that day. 
 For those volatile days, we use blue lines and dots to provide special annotations (error lines). Finally, we obtain the completed chart.
+
+For the RSI and MACD chart, we determine the corresponding RSI and MACD values from the closing prices by using the ta crate. Then we simply repeat what we did for the previous chart
+and change the x/y-axis scale and label, title and legend label to create the final chart
 
 ## Project setup
 
