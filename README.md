@@ -8,7 +8,7 @@ We use yahoo_finance_api to fetch the historical stock data of the input company
 #### 3. time
 We use time crate to get current time by ***OffsetDateTime*** and get six month by ***Duration***
 #### 4. plotters
-We use plotters to generate the stock data plot
+We use plotters to generate the stock data plot which is a line graph
 #### 5. ta
 We use ta to get the RSI and MACD data
 
